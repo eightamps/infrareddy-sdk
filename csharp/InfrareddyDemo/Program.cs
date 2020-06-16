@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading;
 using EightAmps;
 
-namespace InfrareddyDemo
+namespace InfrareddyExample
 {
     class Program
     {

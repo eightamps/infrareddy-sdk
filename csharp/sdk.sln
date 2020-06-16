@@ -3,14 +3,14 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30011.22
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EightAmps", "EightAmps\EightAmps.csproj", "{A07D30A2-5EBB-4B59-B7BC-898F5FD1C5D6}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Infrareddy", "EightAmps\Infrareddy.csproj", "{A07D30A2-5EBB-4B59-B7BC-898F5FD1C5D6}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "InfrareddyDemo", "InfrareddyDemo\InfrareddyDemo.csproj", "{6EF355F0-FDA2-420C-94C5-DDE5DB4CCD9B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "InfrareddyExample", "InfrareddyDemo\InfrareddyExample.csproj", "{6EF355F0-FDA2-420C-94C5-DDE5DB4CCD9B}"
 	ProjectSection(ProjectDependencies) = postProject
 		{A07D30A2-5EBB-4B59-B7BC-898F5FD1C5D6} = {A07D30A2-5EBB-4B59-B7BC-898F5FD1C5D6}
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EightAmpsTest", "EightAmpsTest\EightAmpsTest.csproj", "{047600CB-7B84-47D3-8992-C44A32881D93}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "InfrareddyTest", "EightAmpsTest\InfrareddyTest.csproj", "{047600CB-7B84-47D3-8992-C44A32881D93}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
