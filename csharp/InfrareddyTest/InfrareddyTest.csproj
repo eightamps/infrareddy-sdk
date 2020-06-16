@@ -15,7 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\EightAmps\Infrareddy.csproj" />
+    <ProjectReference Include="..\Infrareddy\Infrareddy.csproj" />
   </ItemGroup>
 
 </Project>
