@@ -5,6 +5,8 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System;
 using System.Text;
+using LibUsbDotNet;
+using HidSharp.Reports;
 
 namespace EightAmps
 {
@@ -15,6 +17,7 @@ namespace EightAmps
         public const Byte STATUS_REPORT_ID = 0x01;
         public const Byte TYPE_PRONTO = 0x00;
         public const Byte ENC_CMD_ID = 0x03;
+        public const uint PRODUCT_ID = 0xff8a0002;
 
         private static UInt16 RequestTag = 0;
 
@@ -59,6 +62,8 @@ namespace EightAmps
         public Version SoftwareVersion { get; private set; }
         public Version HardwareVersion { get { return hiddev.ReleaseNumber; } }
         public delegate void CompleteHandler(RequestStatus status);
+
+
 
         public Infrareddy(HidStream hidStream)
         {
@@ -236,7 +241,7 @@ namespace EightAmps
          */
         private static bool IsInfrareddy(HidDevice hiddev)
         {
-            return hiddev.IsAspenDevice() && hiddev.GetApplicationUsage() == (uint)ProductIds.Infrareddy;
+            return Infrareddy.IsAspenDevice(hiddev) && Infrareddy.GetApplicationUsage(hiddev) == (uint)PRODUCT_ID;
         }
 
         /**
@@ -284,6 +289,44 @@ namespace EightAmps
         public static IEnumerable<Infrareddy> All()
         {
             return Infrareddy.AllFrom(DeviceList.Local.GetHidDevices());
+        }
+
+        public static bool IsAspenDevice(HidDevice hiddev)
+        {
+            if (hiddev == null)
+                return false;
+            if (hiddev.VendorID != 0x0483)
+                return false;
+            if (hiddev.ProductID != 0xa367)
+                return false;
+            return true;
+        }
+
+        public static bool IsAspenDevice(UsbDevice usbdev)
+        {
+            if (usbdev == null)
+                return false;
+            if ((ushort)usbdev.Info.Descriptor.VendorID != 0x0483)
+                return false;
+            if ((ushort)usbdev.Info.Descriptor.ProductID != 0xa367)
+                return false;
+            return true;
+        }
+
+        public static uint GetApplicationUsage(HidDevice hiddev)
+        {
+            if (hiddev == null)
+                return 0;
+            var reportDescriptor = hiddev.GetReportDescriptor();
+            var ditem = reportDescriptor.DeviceItems.FirstOrDefault();
+            return ditem.Usages.GetAllValues().FirstOrDefault();
+        }
+
+        public static byte[] CreateBuffer(Report report)
+        {
+            byte[] buffer = new byte[report.Length];
+            buffer[0] = report.ReportID;
+            return buffer;
         }
 
         public void Dispose()
