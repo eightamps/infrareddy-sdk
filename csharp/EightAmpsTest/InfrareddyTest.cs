@@ -14,7 +14,7 @@ namespace EightAmpsTest
         private FakeHidStream stream;
         Infrareddy.RequestStatus status;
 
-        private void completeHandler(Infrareddy.RequestStatus status, string message)
+        private void completeHandler(Infrareddy.RequestStatus status)
         {
             this.status = status;
         }
@@ -39,7 +39,7 @@ namespace EightAmpsTest
         {
             Infrareddy infrareddy = new Infrareddy(stream);
             infrareddy.EmitPronto("abcd", Infrareddy.NoRepeat, completeHandler);
-            Assert.AreEqual(Infrareddy.RequestStatus.Success, status);
+            Assert.AreEqual(Infrareddy.RequestStatus.IrSuccess, status);
         }
 
         [TestCase]
