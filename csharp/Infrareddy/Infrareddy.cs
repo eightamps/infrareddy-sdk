@@ -1,12 +1,12 @@
-﻿using HidSharp;
+﻿using HidSharp.Reports;
+using HidSharp;
+using LibUsbDotNet;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using System;
-using System.Text;
-using LibUsbDotNet;
-using HidSharp.Reports;
 
 namespace EightAmps
 {
@@ -56,14 +56,11 @@ namespace EightAmps
 
         public static Byte Repeat = 0x01;
         public static Byte NoRepeat = 0x00;
-
         private HidDevice hiddev { get { return stream.Device; } }
         private HidStream stream;
         public Version SoftwareVersion { get; private set; }
         public Version HardwareVersion { get { return hiddev.ReleaseNumber; } }
         public delegate void CompleteHandler(RequestStatus status);
-
-
 
         public Infrareddy(HidStream hidStream)
         {
@@ -72,9 +69,9 @@ namespace EightAmps
 
         Byte[] StructureToByteArray(object obj)
         {
-            int len = Marshal.SizeOf(obj);
-            Byte[] arr = new Byte[len];
-            IntPtr ptr = Marshal.AllocHGlobal(len);
+            var len = Marshal.SizeOf(obj);
+            var arr = new Byte[len];
+            var ptr = Marshal.AllocHGlobal(len);
             Marshal.StructureToPtr(obj, ptr, true);
             Marshal.Copy(ptr, arr, 0, len);
             Marshal.FreeHGlobal(ptr);
@@ -83,8 +80,8 @@ namespace EightAmps
 
         void ByteArrayToStructure(Byte[] bytearray, ref object obj)
         {
-            int len = Marshal.SizeOf(obj);
-            IntPtr i = Marshal.AllocHGlobal(len);
+            var len = Marshal.SizeOf(obj);
+            var i = Marshal.AllocHGlobal(len);
             Marshal.Copy(bytearray, 0, i, len);
             obj = Marshal.PtrToStructure(i, obj.GetType());
             Marshal.FreeHGlobal(i);
@@ -150,10 +147,9 @@ namespace EightAmps
          */
         public EncodeCmdReportType[] CommandToReports(string command, UInt16 requestTag)
         {
-            Byte[] commandBytes = CommandToBytes(command);
-            int packetCount = (commandBytes.Length + IR_DATA_PACKET_SIZE - 1) / IR_DATA_PACKET_SIZE;
-
-            EncodeCmdReportType[] packets = new EncodeCmdReportType[packetCount];
+            var commandBytes = CommandToBytes(command);
+            var packetCount = (commandBytes.Length + IR_DATA_PACKET_SIZE - 1) / IR_DATA_PACKET_SIZE;
+            var packets = new EncodeCmdReportType[packetCount];
 
             for (var i = 0; i < packetCount; i++)
             {
@@ -265,30 +261,55 @@ namespace EightAmps
          */
         public static IEnumerable<Infrareddy> AllFrom(IEnumerable<HidDevice> hidDevices)
         {
-            IEnumerable<HidDevice> devices = hidDevices.Where(d => Infrareddy.IsInfrareddy(d));
+            var devices = hidDevices.Where(d => Infrareddy.IsInfrareddy(d));
 
             var instances = new List<Infrareddy>();
             foreach (var device in devices)
             {
-                var stream = StreamFromDevice(device);
-                if (stream == null)
-                {
-                    throw new Exception("Expected StreamFromDevice");
-                }
-
-                instances.Add(new Infrareddy(stream));
+                instances.Add(CreateFromHidDevice(device));
             }
 
             return instances;
         }
 
         /**
+         * Create an Infrareddy instance with a connected stream using the provided device.
+         */
+        private static Infrareddy CreateFromHidDevice(HidDevice device)
+        {
+            var stream = StreamFromDevice(device);
+            if (stream == null)
+            {
+                throw new Exception("Expected StreamFromDevice");
+            }
+
+            return new Infrareddy(stream);
+        }
+
+        /**
          * Get a collection of connected Infrareddy devices by going directly
          * to the hardware listing.
+         *
+         * Returns an empty collection if no devices are found.
          */
         public static IEnumerable<Infrareddy> All()
         {
             return Infrareddy.AllFrom(DeviceList.Local.GetHidDevices());
+        }
+
+        /**
+         * Get the first Infrareddy HID device found and return it.
+         * Returns null if no device is found and throws if a device is found,
+         * but cannot communicate.
+         */
+        public static Infrareddy First()
+        {
+            var infrareddies = DeviceList.Local.GetHidDevices().Where(d => Infrareddy.IsInfrareddy(d));
+            if (infrareddies.Count() > 0)
+            {
+                return CreateFromHidDevice(infrareddies.First());
+            }
+            return null;
         }
 
         public static bool IsAspenDevice(HidDevice hiddev)
@@ -316,7 +337,9 @@ namespace EightAmps
         public static uint GetApplicationUsage(HidDevice hiddev)
         {
             if (hiddev == null)
+            {
                 return 0;
+            }
             var reportDescriptor = hiddev.GetReportDescriptor();
             var ditem = reportDescriptor.DeviceItems.FirstOrDefault();
             return ditem.Usages.GetAllValues().FirstOrDefault();
@@ -324,7 +347,7 @@ namespace EightAmps
 
         public static byte[] CreateBuffer(Report report)
         {
-            byte[] buffer = new byte[report.Length];
+            var buffer = new byte[report.Length];
             buffer[0] = report.ReportID;
             return buffer;
         }
