@@ -39,7 +39,7 @@ namespace EightAmpsTest
         {
             Infrareddy infrareddy = new Infrareddy(stream);
             var status = infrareddy.EmitPronto("abcd", Infrareddy.NoRepeat);
-            Assert.AreEqual(Infrareddy.RequestStatus.IrSuccess, status);
+            Assert.AreEqual(Infrareddy.RequestStatus.IR_SUCCESS, status);
         }
 
         [TestCase]
