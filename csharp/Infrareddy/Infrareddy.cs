@@ -45,13 +45,18 @@ namespace EightAmps
         {
             public Byte id;
             public UInt16 tag;
-            public Byte status;
+            public UInt16 status;
         }
 
         public enum RequestStatus
         {
-            IrSuccess = 0,
-            IrFailure,
+            IR_SUCCESS = 0,
+            IR_INVALID_NOT_HEX,
+            IR_INVALID_MALFORMED,
+            IR_UNSUPPORTED_FORMAT,
+            IR_UNSUPPORTED_FREQUENCY,
+            IR_INVALID_SIZE,
+            IR_IS_BUSY,
         }
 
         public static Byte Repeat = 0x01;
@@ -200,7 +205,7 @@ namespace EightAmps
          *
          * Call the provided handler with status updates when emit is complete.
          */
-        public void EmitPronto(string command, Byte isRepeat, CompleteHandler handler)
+        public RequestStatus EmitPronto(string command, Byte isRepeat)
         {
             Console.WriteLine("EMIT PRONTO Called with: {0}", command);
             if (command.Length > IR_DATA_MESSAGE_SIZE)
@@ -215,7 +220,20 @@ namespace EightAmps
                 stream.Write(StructureToByteArray(reports[i]));
             }
 
-            handler(RequestStatus.IrSuccess);
+            object responseObj = new StatusRspReportType { };
+            var bytes = stream.Read();
+            string hex = BitConverter.ToString(bytes);
+            hex.Replace("-", "");
+            Console.WriteLine("BYTES: {0}", hex);
+
+            ByteArrayToStructure(bytes, ref responseObj);
+            StatusRspReportType response = (StatusRspReportType)responseObj;
+
+            Console.WriteLine("Response.status {0}", response.status);
+
+            Thread.Sleep(500);
+
+            return (RequestStatus)response.status;
         }
 
         /**

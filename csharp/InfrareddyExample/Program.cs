@@ -31,13 +31,15 @@ namespace InfrareddyExample
             while (true)
             {
                 var startTime = DateTime.Now;
-                instance.EmitPronto(SAMSUNG_PRONTO_PWR, Infrareddy.Repeat, (Infrareddy.RequestStatus status) =>
+                var result = instance.EmitPronto(SAMSUNG_PRONTO_PWR, Infrareddy.Repeat);
+                var duration = DateTime.Now - startTime;
+                Console.WriteLine("EMIT IR Complete in {0}ms", duration.TotalMilliseconds);
+                if (result != Infrareddy.RequestStatus.IR_SUCCESS)
                 {
-                    var duration = DateTime.Now - startTime;
-                    Console.WriteLine("EMIT IR Complete in {0}ms", duration.TotalMilliseconds);
-                });
+                    Console.WriteLine("[ERROR] Code: {0}, Press any key to continue.", result);
+                    Console.ReadLine();
+                }
 
-                Thread.Sleep(1000);
             }
 
             // Also try listening...
