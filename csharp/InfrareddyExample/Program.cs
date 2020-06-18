@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using EightAmps;
 
@@ -9,25 +7,27 @@ namespace InfrareddyExample
     class Program
     {
         private static string SAMSUNG_PRONTO_PWR = "0000 006C 0000 0022 00AD 00AD 0016 0041 0016 0041" +
-                                  "0016 0041 0016 0016 0016 0016 0016 0016 0016 0016 0016 " +
-                                  "0016 0016 0041 0016 0041 0016 0041 0016 0016 0016 0016 " +
-                                  "0016 0016 0016 0016 0016 0016 0016 0016 0016 0041 0016 " +
-                                  "0016 0016 0016 0016 0016 0016 0016 0016 0016 0016 0016 " +
-                                  "0016 0041 0016 0016 0016 0041 0016 0041 0016 0041 0016 " +
-                                  "0041 0016 0041 0016 0041 0016 06FB";
+                                              "0016 0041 0016 0016 0016 0016 0016 0016 0016 0016 0016 " +
+                                              "0016 0016 0041 0016 0041 0016 0041 0016 0016 0016 0016 " +
+                                              "0016 0016 0016 0016 0016 0016 0016 0016 0016 0041 0016 " +
+                                              "0016 0016 0016 0016 0016 0016 0016 0016 0016 0016 0016 " +
+                                              "0016 0041 0016 0016 0016 0041 0016 0041 0016 0041 0016 " +
+                                              "0041 0016 0041 0016 0041 0016 06FB";
 
         static void Main(string[] args)
         {
-            // Get all connected Infrareddy devices.
-            IEnumerable<Infrareddy> connectedDevices = Infrareddy.All();
-            // Bail if we don't find any Infrareddy devices.
-            if (connectedDevices.Count() == 0)
+            // Get the first connected Infrareddy device.
+            var instance = Infrareddy.First();
+            // Bail if we don't find an Infrareddy device.
+            if (instance == null)
             {
                 Console.WriteLine("No Infrareddy found, reconnect the USB device and try again.");
                 return;
             }
+
+            Console.WriteLine("HardwareVersion: {0}", instance.HardwareVersion);
+
             // Get the first connected Infrareddy device from the collection.
-            Infrareddy instance = connectedDevices.FirstOrDefault();
             while (true)
             {
                 var startTime = DateTime.Now;
