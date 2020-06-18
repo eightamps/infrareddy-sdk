@@ -19,7 +19,7 @@ namespace EightAmps
         public const Byte ENC_CMD_ID = 0x03;
         public const uint PRODUCT_ID = 0xff8a0002;
 
-        private static UInt16 RequestTag = 0;
+        private static Byte RequestTag = 0;
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
         public struct IrDataProt
@@ -35,17 +35,17 @@ namespace EightAmps
         public struct EncodeCmdReportType
         {
             public Byte id;
-            public UInt16 tag;
+            public Byte tag;
             [MarshalAs(UnmanagedType.Struct)]
             public IrDataProt prot;
         }
 
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1, Size = 3)]
         public struct StatusRspReportType
         {
             public Byte id;
-            public UInt16 tag;
-            public UInt16 status;
+            public Byte tag;
+            public Int32 status;
         }
 
         public enum RequestStatus
@@ -103,16 +103,10 @@ namespace EightAmps
         /**
          * Get the next valid request key.
          * 
-         * Valid values are from 0 to 254.
+         * Valid values are from 0 to 255.
          */
-        public static UInt16 NextRequestTag()
+        public static Byte NextRequestTag()
         {
-            // Wrap back to 0 at UInt16 max value
-            if (RequestTag == 0xffff)
-            {
-                RequestTag = 0;
-            }
-
             return RequestTag++;
         }
 
@@ -150,7 +144,7 @@ namespace EightAmps
          * Convert an IR command string into a set of data packets for transmission
          * over the 64-Byte USB HID channel.
          */
-        public EncodeCmdReportType[] CommandToReports(string command, UInt16 requestTag)
+        public EncodeCmdReportType[] CommandToReports(string command, Byte requestTag)
         {
             var commandBytes = CommandToBytes(command);
             var packetCount = (commandBytes.Length + IR_DATA_PACKET_SIZE - 1) / IR_DATA_PACKET_SIZE;
@@ -182,7 +176,7 @@ namespace EightAmps
             return packets;
         }
 
-        public EncodeCmdReportType CommandToReport(string command, UInt16 requestTag)
+        public EncodeCmdReportType CommandToReport(string command, Byte requestTag)
         {
             var bytes = CommandToBytes(command);
 
@@ -220,19 +214,10 @@ namespace EightAmps
                 stream.Write(StructureToByteArray(reports[i]));
             }
 
-            object responseObj = new StatusRspReportType { };
             var bytes = stream.Read();
-            string hex = BitConverter.ToString(bytes);
-            hex.Replace("-", "");
-            Console.WriteLine("BYTES: {0}", hex);
-
+            object responseObj = new StatusRspReportType { };
             ByteArrayToStructure(bytes, ref responseObj);
             StatusRspReportType response = (StatusRspReportType)responseObj;
-
-            Console.WriteLine("Response.status {0}", response.status);
-
-            Thread.Sleep(500);
-
             return (RequestStatus)response.status;
         }
 
