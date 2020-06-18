@@ -6,7 +6,7 @@ namespace InfrareddyExample
 {
     class Program
     {
-        private static string SAMSUNG_PRONTO_PWR = "0000 006C 0000 0022 00AD 00AD 0016 0041 0016 0041 " +
+        private static string SAMSUNG_PRONTO_PWR = "0000 006C 0000 0022 00AD 00AD 0016 0041 0016 0041" +
                                               "0016 0041 0016 0016 0016 0016 0016 0016 0016 0016 0016 " +
                                               "0016 0016 0041 0016 0041 0016 0041 0016 0016 0016 0016 " +
                                               "0016 0016 0016 0016 0016 0016 0016 0016 0016 0041 0016 " +

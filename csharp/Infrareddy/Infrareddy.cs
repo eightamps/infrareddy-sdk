@@ -45,7 +45,7 @@ namespace EightAmps
         {
             public Byte id;
             public UInt16 tag;
-            public UInt16 status;
+            public Byte status;
         }
 
         public enum RequestStatus
@@ -220,12 +220,12 @@ namespace EightAmps
                 stream.Write(StructureToByteArray(reports[i]));
             }
 
-            object responseObj = new StatusRspReportType { };
             var bytes = stream.Read();
             string hex = BitConverter.ToString(bytes);
             hex.Replace("-", "");
             Console.WriteLine("BYTES: {0}", hex);
 
+            object responseObj = new StatusRspReportType { };
             ByteArrayToStructure(bytes, ref responseObj);
             StatusRspReportType response = (StatusRspReportType)responseObj;
 
