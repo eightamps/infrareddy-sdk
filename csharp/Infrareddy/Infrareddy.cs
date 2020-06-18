@@ -186,7 +186,8 @@ namespace EightAmps
         {
             var bytes = CommandToBytes(command);
 
-            return new EncodeCmdReportType {
+            return new EncodeCmdReportType
+            {
                 id = ENC_CMD_ID,
                 tag = requestTag,
                 prot = new IrDataProt
