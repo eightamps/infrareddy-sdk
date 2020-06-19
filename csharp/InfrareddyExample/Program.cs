@@ -40,6 +40,7 @@ namespace InfrareddyExample
                     Console.ReadLine();
                 }
 
+                Thread.Sleep(500);
             }
 
             // Also try listening...
