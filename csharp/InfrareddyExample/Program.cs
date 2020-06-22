@@ -6,6 +6,9 @@ namespace InfrareddyExample
 {
     class Program
     {
+        private static string SHORTY = "0000 006C 0000 0009 00AD 00AD 0016 0041 0016 0041 " +
+                                              "0016 0041 0016 0016 0016 0016 0016 0016 0016 0016 0016";
+
         private static string SAMSUNG_PRONTO_PWR = "0000 006C 0000 0022 00AD 00AD 0016 0041 0016 0041 " +
                                               "0016 0041 0016 0016 0016 0016 0016 0016 0016 0016 0016 " +
                                               "0016 0016 0041 0016 0041 0016 0041 0016 0016 0016 0016 " +
@@ -31,14 +34,20 @@ namespace InfrareddyExample
             while (true)
             {
                 var startTime = DateTime.Now;
-                var result = instance.EmitPronto(SAMSUNG_PRONTO_PWR, Infrareddy.Repeat);
+                // Encode
+                var encodeResult = instance.EncodePronto(SAMSUNG_PRONTO_PWR, Infrareddy.NoRepeat);
+                Console.WriteLine("EncodeResult: {0}", encodeResult);
+
+                var result = instance.DecodePronto();
                 var duration = DateTime.Now - startTime;
                 Console.WriteLine("EMIT IR Complete in {0}ms", duration.TotalMilliseconds);
-                if (result != Infrareddy.RequestStatus.IR_SUCCESS)
+                if (result.status != Infrareddy.RequestStatus.IR_SUCCESS)
                 {
                     Console.WriteLine("[ERROR] Code: {0}, Press any key to continue.", result);
                     Console.ReadLine();
                 }
+
+                Console.WriteLine("DATA: {0}", result.payload);
 
                 Thread.Sleep(500);
             }

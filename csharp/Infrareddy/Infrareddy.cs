@@ -7,37 +7,33 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System;
+using System.Security.Cryptography;
 
 namespace EightAmps
 {
     public class Infrareddy
     {
-        public const UInt16 IR_DATA_PACKET_SIZE = (64 - (1 + 2 + 2 + 2 + 2) - 1);
-        public const UInt16 IR_DATA_MESSAGE_SIZE = (4096 - 1);
-        public const Byte STATUS_REPORT_ID = 0x01;
+        public const UInt16 IR_ENVELOPE_SIZE = (512 - 1);
+        public const UInt16 IR_ENCODE_DATA_SIZE = (IR_ENVELOPE_SIZE - (1 + 1 + 2));
+        public const UInt16 IR_DECODE_DATA_SIZE = (IR_ENVELOPE_SIZE - (1 + 1 + 4 + 1 + 2));
+
         public const Byte TYPE_PRONTO = 0x00;
+        public const Byte STATUS_REPORT_ID = 0x01;
+        public const Byte DEC_CMD_ID = 0x02;
         public const Byte ENC_CMD_ID = 0x03;
-        public const uint PRODUCT_ID = 0xff8a0002;
 
-        private static Byte RequestTag = 0;
+        public const uint ASPEN_PRODUCT_ID = 0xff8a0002;
 
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
-        public struct IrDataProt
-        {
-            public UInt16 chunkOffset;
-            public UInt16 chunkLen;
-            public UInt16 len;
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = IR_DATA_PACKET_SIZE)]
-            public Byte[] data;
-        }
+        private static Byte RequestTag = 100;
 
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1, Size = IR_ENVELOPE_SIZE)]
         public struct EncodeCmdReportType
         {
             public Byte id;
             public Byte tag;
-            [MarshalAs(UnmanagedType.Struct)]
-            public IrDataProt prot;
+            public UInt16 len;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = IR_ENCODE_DATA_SIZE)]
+            public Byte[] data;
         }
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1, Size = 3)]
@@ -48,15 +44,43 @@ namespace EightAmps
             public Int32 status;
         }
 
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1, Size = 5)]
+        public struct DecodeCmdReportType
+        {
+            public Byte id;
+            public Byte tag;
+            public UInt16 timeoutMs;
+            public Byte type;
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1, Size = IR_ENVELOPE_SIZE)]
+        public struct DecodeCmdResponseType
+        {
+            public Byte id;
+            public Byte tag;
+            public Int32 status;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = IR_DECODE_DATA_SIZE)]
+            public Byte type;
+            public UInt16 len;
+            public Byte[] data;
+        }
+
         public enum RequestStatus
         {
             IR_SUCCESS = 0,
-            IR_INVALID_NOT_HEX,
+            IR_IS_BUSY,
+            IR_INVALID_NOT_HEX = 50,
             IR_INVALID_MALFORMED,
             IR_UNSUPPORTED_FORMAT,
             IR_UNSUPPORTED_FREQUENCY,
             IR_INVALID_SIZE,
-            IR_IS_BUSY,
+            IR_INVALID,
+        }
+
+        public struct DecodeProntoResponse
+        {
+            public RequestStatus status;
+            public string payload;
         }
 
         public static Byte Repeat = 0x01;
@@ -86,10 +110,10 @@ namespace EightAmps
         void ByteArrayToStructure(Byte[] bytearray, ref object obj)
         {
             var len = Marshal.SizeOf(obj);
-            var i = Marshal.AllocHGlobal(len);
-            Marshal.Copy(bytearray, 0, i, len);
-            obj = Marshal.PtrToStructure(i, obj.GetType());
-            Marshal.FreeHGlobal(i);
+            var copy = Marshal.AllocHGlobal(len);
+            Marshal.Copy(bytearray, 0, copy, len);
+            obj = Marshal.PtrToStructure(copy, obj.GetType());
+            Marshal.FreeHGlobal(copy);
         }
 
         /**
@@ -110,10 +134,22 @@ namespace EightAmps
             return RequestTag++;
         }
 
-        // Convert the C# string command to Byte array.
-        public Byte[] CommandToBytes(string command)
+        private Byte[] ProntoStringToBytes(string command)
         {
             return Encoding.ASCII.GetBytes(command);
+        }
+
+        // Convert the C# string command to Byte array.
+        public Byte[] ProntoBytesToWireBytes(Byte[] prontoBytes)
+        {
+            var bytes = new Byte[IR_ENCODE_DATA_SIZE];
+            // Copy the values into a longer array so that we can marshal 
+            // the Byte array of fixed length into the firmware.
+            for (var i = 0;  i < prontoBytes.Length; i++)
+            {
+                bytes[i] = prontoBytes[i];
+            }
+            return bytes;
         }
 
         /**
@@ -122,75 +158,21 @@ namespace EightAmps
          */
         private string ReportToString(EncodeCmdReportType report)
         {
-            return Encoding.ASCII.GetString(report.prot.data)
-                .Substring(0, report.prot.chunkLen);
+            return Encoding.ASCII.GetString(report.data)
+                .Substring(0, report.len);
         }
 
-        /**
-         * Generate an encoded IR Pronto Command string by combining
-         * the provided report data.
-         */
-        public string ReportsToCommand(EncodeCmdReportType[] reports)
+        public EncodeCmdReportType ProntoToReport(string pronto, Byte requestTag)
         {
-            var result = "";
-            for (var i = 0; i < reports.Length; i++)
-            {
-                result += ReportToString(reports[i]);
-            }
-            return result;
-        }
-
-        /**
-         * Convert an IR command string into a set of data packets for transmission
-         * over the 64-Byte USB HID channel.
-         */
-        public EncodeCmdReportType[] CommandToReports(string command, Byte requestTag)
-        {
-            var commandBytes = CommandToBytes(command);
-            var packetCount = (commandBytes.Length + IR_DATA_PACKET_SIZE - 1) / IR_DATA_PACKET_SIZE;
-            var packets = new EncodeCmdReportType[packetCount];
-
-            for (var i = 0; i < packetCount; i++)
-            {
-                var totalLen = (UInt16)commandBytes.Length;
-                var chunkOffset = (UInt16)(i * IR_DATA_PACKET_SIZE);
-                var chunkLen = (UInt16)Math.Min(IR_DATA_PACKET_SIZE, totalLen - chunkOffset);
-                var packet = new EncodeCmdReportType
-                {
-                    id = ENC_CMD_ID,
-                    tag = requestTag,
-                    prot = new IrDataProt
-                    {
-                        chunkOffset = chunkOffset,
-                        chunkLen = chunkLen,
-                        len = totalLen,
-                        data = new Byte[IR_DATA_PACKET_SIZE],
-                    }
-                };
-
-                // Copy the data into the destination array.
-                Array.Copy(commandBytes, chunkOffset, packet.prot.data, 0, chunkLen);
-                packets[i] = packet;
-            }
-
-            return packets;
-        }
-
-        public EncodeCmdReportType CommandToReport(string command, Byte requestTag)
-        {
-            var bytes = CommandToBytes(command);
+            var prontoBytes = ProntoStringToBytes(pronto);
+            var wireBytes = ProntoBytesToWireBytes(prontoBytes);
 
             return new EncodeCmdReportType
             {
                 id = ENC_CMD_ID,
                 tag = requestTag,
-                prot = new IrDataProt
-                {
-                    chunkOffset = 0,
-                    chunkLen = IR_DATA_PACKET_SIZE,
-                    len = (UInt16)bytes.Length,
-                    data = bytes,
-                }
+                len = (UInt16)prontoBytes.Length,
+                data = wireBytes,
             };
         }
         /**
@@ -200,24 +182,23 @@ namespace EightAmps
          *
          * Call the provided handler with status updates when emit is complete.
          */
-        public RequestStatus EmitPronto(string command, Byte isRepeat)
+        public RequestStatus EncodePronto(string prontoStr, Byte isRepeat)
         {
-            Console.WriteLine("EMIT PRONTO Called with: {0}", command);
-            if (command.Length > IR_DATA_MESSAGE_SIZE)
+            Console.WriteLine("EMIT PRONTO Called with: {0}", prontoStr);
+            if (prontoStr.Length > IR_ENCODE_DATA_SIZE)
             {
-                throw new InvalidOperationException("EmitPronto called with IR code that is too long.");
+                prontoStr = prontoStr.Substring(0, IR_ENCODE_DATA_SIZE - 4);
+                // throw new InvalidOperationException("EmitPronto called with IR code that is too long.");
             }
 
             var requestTag = Infrareddy.NextRequestTag();
-            var reports = CommandToReports(command, requestTag);
-            for (var i = 0; i < reports.Length; i++)
-            {
-                stream.Write(StructureToByteArray(reports[i]));
-            }
+            var report = ProntoToReport(prontoStr, requestTag);
+            var writeBytes = StructureToByteArray(report);
+            stream.Write(writeBytes);
 
-            var bytes = stream.Read();
+            var responseBytes = stream.Read();
             object responseObj = new StatusRspReportType { };
-            ByteArrayToStructure(bytes, ref responseObj);
+            ByteArrayToStructure(responseBytes, ref responseObj);
             StatusRspReportType response = (StatusRspReportType)responseObj;
             return (RequestStatus)response.status;
         }
@@ -229,9 +210,38 @@ namespace EightAmps
          * Call the provided handler when listening has either received a
          * signal, failed or timed out.
          */
-        public void ListenPronto(CompleteHandler handler)
+        public DecodeProntoResponse DecodePronto()
         {
-            throw new NotImplementedException("ListenPronto not yet implemented");
+            Infrareddy.NextRequestTag();
+            var requestTag = Infrareddy.NextRequestTag();
+            var command = new DecodeCmdReportType
+            {
+                id = DEC_CMD_ID,
+                tag = requestTag,
+            };
+            Console.WriteLine("Sending to device");
+            stream.Write(StructureToByteArray(command));
+            stream.Flush();
+
+            Console.WriteLine("Reading from device");
+            var responseBytes = new Byte[IR_ENVELOPE_SIZE];
+            stream.Read(responseBytes);
+            Console.WriteLine("Read complete!");
+
+            object responseObj = new DecodeCmdResponseType { };
+            ByteArrayToStructure(responseBytes, ref responseObj);
+            var responseStruct = (DecodeCmdResponseType)responseObj;
+
+            return new DecodeProntoResponse
+            {
+                status = (RequestStatus)responseStruct.status,
+                payload = bytesToString(responseStruct.data),
+            };
+        }
+
+        private string bytesToString(Byte[] bytes)
+        {
+            return Encoding.ASCII.GetString(bytes);
         }
 
         /**
@@ -241,7 +251,7 @@ namespace EightAmps
          */
         private static bool IsInfrareddy(HidDevice hiddev)
         {
-            return Infrareddy.IsAspenDevice(hiddev) && Infrareddy.GetApplicationUsage(hiddev) == (uint)PRODUCT_ID;
+            return Infrareddy.IsAspenDevice(hiddev) && Infrareddy.GetApplicationUsage(hiddev) == (uint)ASPEN_PRODUCT_ID;
         }
 
         /**
@@ -349,9 +359,9 @@ namespace EightAmps
             return ditem.Usages.GetAllValues().FirstOrDefault();
         }
 
-        public static byte[] CreateBuffer(Report report)
+        public static Byte[] CreateBuffer(Report report)
         {
-            var buffer = new byte[report.Length];
+            var buffer = new Byte[report.Length];
             buffer[0] = report.ReportID;
             return buffer;
         }
