@@ -1,0 +1,3 @@
+[submodule ".\\csharp\\Vendor\\HidLibrary"]
+	path = .\\csharp\\Vendor\\HidLibrary
+	url = git@github.com:mikeobrien/HidLibrary.git
