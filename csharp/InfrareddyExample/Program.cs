@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using EightAmps;
+using Microsoft.VisualBasic;
 
 namespace InfrareddyExample
 {
@@ -33,20 +34,28 @@ namespace InfrareddyExample
             // Get the first connected Infrareddy device from the collection.
             while (true)
             {
-                var startTime = DateTime.Now;
-                // Encode
-                var encodeResult = instance.EncodePronto(SAMSUNG_PRONTO_PWR, Infrareddy.NoRepeat);
-                Console.WriteLine("EncodeResult: {0}", encodeResult);
-                Thread.Sleep(100);
+                try
+                {
+                    var startTime = DateTime.Now;
+                    // Encode
+                    // var encodeResult = instance.EncodePronto(SAMSUNG_PRONTO_PWR, Infrareddy.NoRepeat);
+                    // Console.WriteLine("EncodeResult: {0}", encodeResult);
 
-                // Decode
-                var result = instance.DecodePronto();
-                Console.WriteLine("DecodeResult.status: {0}", result.status);
-                // Console.WriteLine("DecodeResult.payload: {0}", result.payload);
+                    // Decode
+                    var result = instance.DecodePronto();
+                    Console.WriteLine("DecodeResult.status: {0}", result.status);
+                    Console.WriteLine("DecodeResult.payload: {0}", result.payload);
 
-                var duration = DateTime.Now - startTime;
-                Console.WriteLine("Demo IR Complete in {0}ms", duration.TotalMilliseconds);
-                Thread.Sleep(500);
+                    var duration = DateTime.Now - startTime;
+                    Console.WriteLine("Demo IR Complete in {0}ms", duration.TotalMilliseconds);
+
+                    Thread.Sleep(1000);
+                }
+                catch (Exception err)
+                {
+                    instance = Infrareddy.First();
+                }
+                   
             }
         }
     }

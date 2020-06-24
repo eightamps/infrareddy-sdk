@@ -72,6 +72,7 @@ namespace EightAmps
             IR_INVALID_MALFORMED,
             IR_UNSUPPORTED_FORMAT,
             IR_UNSUPPORTED_FREQUENCY,
+            IR_TIMEOUT_EXCEEDED,
             IR_INVALID_SIZE,
             IR_INVALID,
             IR_FAILURE,
@@ -305,16 +306,27 @@ namespace EightAmps
             var status = (RequestStatus)responseStruct.status;
             var payload = BytesToString(responseStruct.data);
 
-            // TODO(lbayes): Add failure response.
             return new DecodeProntoResponse
             {
-                status = RequestStatus.IR_FAILURE,
+                status = status,
+                payload = payload,
             };
         }
 
         private string BytesToString(byte[] bytes)
         {
-            return Encoding.ASCII.GetString(bytes);
+            var bigStr = Encoding.ASCII.GetString(bytes);
+            string result = "";
+            for (var i = 0; i < bigStr.Length; i++)
+            {
+                if (bytes[i] == 0)
+                {
+                    break;
+                }
+                result += bigStr[i];
+            }
+
+            return result;
         }
     }
 }
