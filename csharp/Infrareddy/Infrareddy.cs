@@ -21,7 +21,6 @@ namespace EightAmps
         public const byte OUT_ID_ENCODE_CMD = 3;
         public const byte IN_ID_STATUS_RSP = 1;
 
-
         private static UInt16 RequestTag = 223;
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
@@ -74,6 +73,7 @@ namespace EightAmps
             IR_UNSUPPORTED_FREQUENCY,
             IR_INVALID_SIZE,
             IR_INVALID,
+            IR_FAILURE,
         }
 
         public enum ProtocolType : Int32
@@ -139,6 +139,7 @@ namespace EightAmps
 
         void ByteArrayToStructure(byte[] bytearray, ref object obj)
         {
+
             var len = Marshal.SizeOf(obj);
             var copy = Marshal.AllocHGlobal(len);
             Marshal.Copy(bytearray, 0, copy, len);
@@ -258,24 +259,36 @@ namespace EightAmps
                 id = OUT_ID_DECODE_CMD,
                 tag = requestTag,
             };
-            Console.WriteLine("Sending to device");
-            // stream.Write(StructureToByteArray(command));
-            // stream.Flush();
+            Console.WriteLine("Requesting Decode from device");
+            device.Write(StructureToByteArray(command));
 
-            Console.WriteLine("Reading from device");
-            var responseBytes = new byte[IR_ENVELOPE_SIZE];
-            // stream.Read(responseBytes);
+            Console.WriteLine("Attempt to read Decoded data from device");
+            var readResponse = device.Read();
             Console.WriteLine("Read complete!");
 
-            object responseObj = new DecodeCmdResponseType { };
-            ByteArrayToStructure(responseBytes, ref responseObj);
-            var responseStruct = (DecodeCmdResponseType)responseObj;
-
-            return new DecodeProntoResponse
+            if (readResponse.Status == HidDeviceData.ReadStatus.Success)
             {
-                status = (RequestStatus)responseStruct.status,
-                payload = bytesToString(responseStruct.data),
-            };
+                object responseObj = new DecodeCmdResponseType { };
+                ByteArrayToStructure(readResponse.Data, ref responseObj);
+                var responseStruct = (DecodeCmdResponseType)responseObj;
+                var status = (RequestStatus)responseStruct.status;
+                var payload = bytesToString(responseStruct.data);
+
+                return new DecodeProntoResponse
+                {
+                    status = status,
+                    payload = payload,
+                };
+            }
+            else
+            {
+                Console.WriteLine("FAILED to get decode response");
+                // TODO(lbayes): Add failure response.
+                return new DecodeProntoResponse
+                {
+                    status = RequestStatus.IR_FAILURE,
+                };
+            }
         }
 
         private string bytesToString(Byte[] bytes)

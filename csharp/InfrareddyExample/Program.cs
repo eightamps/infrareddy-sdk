@@ -37,14 +37,15 @@ namespace InfrareddyExample
                 // Encode
                 var encodeResult = instance.EncodePronto(SAMSUNG_PRONTO_PWR, Infrareddy.NoRepeat);
                 Console.WriteLine("EncodeResult: {0}", encodeResult);
+                Thread.Sleep(100);
 
                 // Decode
                 var result = instance.DecodePronto();
                 Console.WriteLine("DecodeResult.status: {0}", result.status);
-                Console.WriteLine("DecodeResult.payload: {0}", result.payload);
+                // Console.WriteLine("DecodeResult.payload: {0}", result.payload);
 
                 var duration = DateTime.Now - startTime;
-                Console.WriteLine("EMIT IR Complete in {0}ms", duration.TotalMilliseconds);
+                Console.WriteLine("Demo IR Complete in {0}ms", duration.TotalMilliseconds);
                 Thread.Sleep(500);
             }
         }
