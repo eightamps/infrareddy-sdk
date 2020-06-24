@@ -11,7 +11,7 @@ namespace EightAmps
     {
         public const UInt16 ASPEN_VENDOR_ID = 0x0483;
         public const UInt16 ASPEN_PRODUCT_ID = 0xa367;
-        public const uint ASPEN_APPLICATION_USAGE_ID = 0xff8a0002;
+        public const uint INFRAREDDY_APPLICATION_USAGE_ID = 0xff8a0002;
 
         public const UInt16 IR_ENVELOPE_SIZE = (4096 - 1);
         public const UInt16 IR_ENCODE_DATA_SIZE = (IR_ENVELOPE_SIZE - (1 + 2 + 4 + 2));
@@ -113,7 +113,7 @@ namespace EightAmps
         private static bool IsInfrareddy(HidDevice hiddev)
         {
             return Infrareddy.IsAspenDevice(hiddev) &&
-                Infrareddy.GetApplicationUsage(hiddev) == ASPEN_APPLICATION_USAGE_ID;
+                Infrareddy.GetApplicationUsage(hiddev) == INFRAREDDY_APPLICATION_USAGE_ID;
         }
 
         public static uint GetApplicationUsage(HidDevice device)
