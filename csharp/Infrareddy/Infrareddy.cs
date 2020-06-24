@@ -1,8 +1,9 @@
 ﻿using System.Runtime.InteropServices;
 using System.Text;
 using System;
-using HidLibrary;
+using HidSharp;
 using System.Linq;
+using System.Threading;
 
 namespace EightAmps
 {
@@ -10,7 +11,7 @@ namespace EightAmps
     {
         public const UInt16 ASPEN_VENDOR_ID = 0x0483;
         public const UInt16 ASPEN_PRODUCT_ID = 0xa367;
-        public const uint ASPEN_REPORT_ID = 0xff8a0002;
+        public const uint ASPEN_APPLICATION_USAGE_ID = 0xff8a0002;
 
         public const UInt16 IR_ENVELOPE_SIZE = (4096 - 1);
         public const UInt16 IR_ENCODE_DATA_SIZE = (IR_ENVELOPE_SIZE - (1 + 2 + 4 + 2));
@@ -100,30 +101,62 @@ namespace EightAmps
 
         public static Infrareddy First()
         {
-            var device = HidDevices.Enumerate(ASPEN_VENDOR_ID, ASPEN_PRODUCT_ID).FirstOrDefault();
-            if (device != null)
-            {
-                return new Infrareddy(device);
-            }
+            var device = DeviceList.Local.GetHidDevices().Where(d => Infrareddy.IsInfrareddy(d)).FirstOrDefault();
+            return device == null ? null : new Infrareddy(device);
+        }
 
-            return null;
+        /**
+         * Return true if the provided HID Device looks like Infrareddy hardware.
+         * Specifically, it should have the correct Vendor ID, Product ID and declare the expected
+         * USB application usage.
+         */
+        private static bool IsInfrareddy(HidDevice hiddev)
+        {
+            return Infrareddy.IsAspenDevice(hiddev) &&
+                Infrareddy.GetApplicationUsage(hiddev) == ASPEN_APPLICATION_USAGE_ID;
+        }
+
+        public static uint GetApplicationUsage(HidDevice device)
+        {
+            return device == null ? 0 : device.GetReportDescriptor()
+                .DeviceItems.FirstOrDefault()
+                .Usages.GetAllValues().FirstOrDefault();
+        }
+
+        public static bool IsAspenDevice(HidDevice device)
+        {
+            return device != null && 
+                device.VendorID == ASPEN_VENDOR_ID &&
+                device.ProductID == ASPEN_PRODUCT_ID;
         }
 
         private HidDevice device;
-        
+        private HidStream stream;
+
         public Infrareddy(HidDevice device)
         {
             this.device = device;
-            device.OpenDevice();
+            this.stream = OpenStream(device);
             // TODO(lbayes): Deal with these events.
             // device.Inserted += DeviceAttachedHandler;
             // device.Removed += DeviceRemovedHandler;
             // device.MonitorDeviceEvents = true;
         }
 
+        private HidStream OpenStream(HidDevice device)
+        {
+            HidStream stream = null;
+            if (device.TryOpen(out stream))
+            {
+                stream.ReadTimeout = Timeout.Infinite;
+                return stream;
+            }
+            return null;
+        }
+
         public void Dispose()
         {
-            device.CloseDevice();
+            stream.Close();
         }
 
         byte[] StructureToByteArray(object obj)
@@ -218,27 +251,27 @@ namespace EightAmps
          */
         public RequestStatus EncodePronto(string prontoStr, byte isRepeat)
         {
-            Console.WriteLine("EMIT PRONTO Called with: {0}", prontoStr);
+            Console.WriteLine("EncodePronto called with: {0}", prontoStr);
             if (prontoStr.Length > IR_ENCODE_DATA_SIZE)
             {
+                // DONOTSUBMIT!
                 prontoStr = prontoStr.Substring(0, IR_ENCODE_DATA_SIZE - 4);
                 // throw new InvalidOperationException("EmitPronto called with IR code that is too long.");
             }
 
             var requestTag = Infrareddy.NextRequestTag();
+            // Send the report over the wire.
             var report = ProntoToReport(prontoStr, requestTag);
             var writeBytes = StructureToByteArray(report);
-            device.Write(writeBytes);
+            Console.WriteLine("Sending Pronto bytes");
+            stream.Write(writeBytes);
 
-            // DONOTSUBMIT
-            var readResponse = device.Read();
-            if (readResponse.Status != HidDeviceData.ReadStatus.Success)
-            {
-                Console.WriteLine("Read failed");
-            }
-
+            Console.WriteLine("About to read for response");
+            // Get the response report from the wire.
+            var readResponse = stream.Read();
+            Console.WriteLine("Read returned");
             object responseObj = new StatusRspReportType { };
-            ByteArrayToStructure(readResponse.Data, ref responseObj);
+            ByteArrayToStructure(readResponse, ref responseObj);
             StatusRspReportType response = (StatusRspReportType)responseObj;
             return (RequestStatus)response.status;
         }
@@ -260,38 +293,26 @@ namespace EightAmps
                 tag = requestTag,
             };
             Console.WriteLine("Requesting Decode from device");
-            device.Write(StructureToByteArray(command));
+            stream.Write(StructureToByteArray(command));
 
             Console.WriteLine("Attempt to read Decoded data from device");
-            var readResponse = device.Read();
+            var readResponse = stream.Read();
             Console.WriteLine("Read complete!");
 
-            if (readResponse.Status == HidDeviceData.ReadStatus.Success)
-            {
-                object responseObj = new DecodeCmdResponseType { };
-                ByteArrayToStructure(readResponse.Data, ref responseObj);
-                var responseStruct = (DecodeCmdResponseType)responseObj;
-                var status = (RequestStatus)responseStruct.status;
-                var payload = bytesToString(responseStruct.data);
+            object responseObj = new DecodeCmdResponseType { };
+            ByteArrayToStructure(readResponse, ref responseObj);
+            var responseStruct = (DecodeCmdResponseType)responseObj;
+            var status = (RequestStatus)responseStruct.status;
+            var payload = BytesToString(responseStruct.data);
 
-                return new DecodeProntoResponse
-                {
-                    status = status,
-                    payload = payload,
-                };
-            }
-            else
+            // TODO(lbayes): Add failure response.
+            return new DecodeProntoResponse
             {
-                Console.WriteLine("FAILED to get decode response");
-                // TODO(lbayes): Add failure response.
-                return new DecodeProntoResponse
-                {
-                    status = RequestStatus.IR_FAILURE,
-                };
-            }
+                status = RequestStatus.IR_FAILURE,
+            };
         }
 
-        private string bytesToString(Byte[] bytes)
+        private string BytesToString(byte[] bytes)
         {
             return Encoding.ASCII.GetString(bytes);
         }
