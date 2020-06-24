@@ -6,6 +6,9 @@ namespace InfrareddyExample
 {
     class Program
     {
+        private static string SHORTY = "0000 006C 0000 0009 00AD 00AD 0016 0041 0016 0041 " +
+                                              "0016 0041 0016 0016 0016 0016 0016 0016 0016 0016 0016";
+
         private static string SAMSUNG_PRONTO_PWR = "0000 006C 0000 0022 00AD 00AD 0016 0041 0016 0041 " +
                                               "0016 0041 0016 0016 0016 0016 0016 0016 0016 0016 0016 " +
                                               "0016 0016 0041 0016 0041 0016 0041 0016 0016 0016 0016 " +
@@ -31,23 +34,19 @@ namespace InfrareddyExample
             while (true)
             {
                 var startTime = DateTime.Now;
-                var result = instance.EmitPronto(SAMSUNG_PRONTO_PWR, Infrareddy.Repeat);
+                // Encode
+                var encodeResult = instance.EncodePronto(SAMSUNG_PRONTO_PWR, Infrareddy.NoRepeat);
+                Console.WriteLine("EncodeResult: {0}", encodeResult);
+
+                // Decode
+                var result = instance.DecodePronto();
+                Console.WriteLine("DecodeResult.status: {0}", result.status);
+                Console.WriteLine("DecodeResult.payload: {0}", result.payload);
+
                 var duration = DateTime.Now - startTime;
                 Console.WriteLine("EMIT IR Complete in {0}ms", duration.TotalMilliseconds);
-                if (result != Infrareddy.RequestStatus.IR_SUCCESS)
-                {
-                    Console.WriteLine("[ERROR] Code: {0}, Press any key to continue.", result);
-                    Console.ReadLine();
-                }
-
                 Thread.Sleep(500);
             }
-
-            // Also try listening...
-            // instance.ListenPronto((payload) =>
-            // {
-                // Console.WriteLine("ListenPronto Complete with status: {0} value: {1} isRepeat: {2}", payload.Status, payload.Value2, payload.IsRepeat);
-            // });
         }
     }
 }
