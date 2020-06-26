@@ -157,7 +157,10 @@ namespace EightAmps
 
         public void Dispose()
         {
-            stream.Close();
+            try
+            {
+                stream.Close();
+            } catch (Exception err) { };
         }
 
         byte[] StructureToByteArray(object obj)
@@ -252,25 +255,19 @@ namespace EightAmps
          */
         public RequestStatus EncodePronto(string prontoStr, byte isRepeat)
         {
-            Console.WriteLine("EncodePronto called with: {0}", prontoStr);
             if (prontoStr.Length > IR_ENCODE_DATA_SIZE)
             {
-                // DONOTSUBMIT!
-                prontoStr = prontoStr.Substring(0, IR_ENCODE_DATA_SIZE - 4);
-                // throw new InvalidOperationException("EmitPronto called with IR code that is too long.");
+                throw new InvalidOperationException("EmitPronto called with IR code that is too long.");
             }
 
             var requestTag = Infrareddy.NextRequestTag();
             // Send the report over the wire.
             var report = ProntoToReport(prontoStr, requestTag);
             var writeBytes = StructureToByteArray(report);
-            Console.WriteLine("Sending Pronto bytes");
             stream.Write(writeBytes);
 
-            Console.WriteLine("About to read for response");
             // Get the response report from the wire.
             var readResponse = stream.Read();
-            Console.WriteLine("Read returned");
             object responseObj = new StatusRspReportType { };
             ByteArrayToStructure(readResponse, ref responseObj);
             StatusRspReportType response = (StatusRspReportType)responseObj;

@@ -1,7 +1,6 @@
 using System;
 using System.Threading;
 using EightAmps;
-using Microsoft.VisualBasic;
 
 namespace InfrareddyExample
 {
@@ -30,14 +29,19 @@ namespace InfrareddyExample
             }
 
             Console.WriteLine("HardwareVersion: {0}", instance.HardwareVersion);
+            int count = 0;
 
             // Get the first connected Infrareddy device from the collection.
             while (true)
             {
                 try
                 {
+                    count++;
+                    Console.WriteLine("Count: {0}", count);
+
                     var startTime = DateTime.Now;
                     // Encode
+                    // Console.WriteLine("About to encode {0}", SAMSUNG_PRONTO_PWR);
                     // var encodeResult = instance.EncodePronto(SAMSUNG_PRONTO_PWR, Infrareddy.NoRepeat);
                     // Console.WriteLine("EncodeResult: {0}", encodeResult);
 
@@ -49,13 +53,27 @@ namespace InfrareddyExample
                     var duration = DateTime.Now - startTime;
                     Console.WriteLine("Demo IR Complete in {0}ms", duration.TotalMilliseconds);
 
-                    Thread.Sleep(1000);
+                    if (result.status == Infrareddy.RequestStatus.IR_SUCCESS)
+                    {
+                        Thread.Sleep(500);
+                        // Encode
+                        // Console.WriteLine("About to encode {0}", result.payload);
+                        var encodeResult = instance.EncodePronto(result.payload, Infrareddy.NoRepeat);
+                        Console.WriteLine("EncodeResult: {0}", encodeResult);
+                    }
+                    else
+                    {
+                        Console.WriteLine("DECODE FAILED: {0}", result.status);
+                    }
+
+                    // Thread.Sleep(100);
                 }
                 catch (Exception err)
                 {
+                    // Wait a little while and then try to re-establish connection.
+                    Thread.Sleep(500);
                     instance = Infrareddy.First();
                 }
-                   
             }
         }
     }
