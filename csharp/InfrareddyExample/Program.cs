@@ -6,8 +6,13 @@ namespace InfrareddyExample
 {
     class Program
     {
+        private static string SERRO_5 = "0000 0070 0000 001A 0010 000E 0010 000E 0010 001F 0010 001F 0010 000E 0010 000E 0010 000E 0010 000E 0010 000E 0010 001F 0010 000E 0010 001F 0010 000E 0010 000E 0010 001F 0010 000E 0010 000E 0010 001F 0010 001F 0010 000E 0010 000E 0010 000E 0010 001F 0010 000E 0010 000E 0010 3078";
+        private static string SERRO_6 = "0000 0070 0000 001A 0010 000E 0010 000E 0010 001F 0010 001F 0010 000E 0010 000E 0010 000E 0010 000E 0010 000E 0010 000E 0010 001F 0010 001F 0010 000E 0010 000E 0010 001F 0010 000E 0010 000E 0010 000E 0010 000E 0010 000E 0010 000E 0010 000E 0010 001F 0010 000E 0010 000E 0010 367D";
+
         private static string SHORTY = "0000 006C 0000 0009 00AD 00AD 0016 0041 0016 0041 " +
                                               "0016 0041 0016 0016 0016 0016 0016 0016 0016 0016 0016";
+
+        private static string SAMSUNG_PRONTO_PWR2 = "0000 0073 0000 0022 0000 000E 0004 0004 0004 0001 0005 0001 0005 0001 0006 0000 0006 0000 0007 0000 0007 0000 0008 0000 0008 0001 0009 0001 0009 0001 000A 0000 000A 0000 000B 0000 000B 0000 000C 0000 000C 0000 000D 0001 000E 0000 000E 0000 000F 0000 000F 0000 0010 0000 0010 0000 0011 0001 0011 0000 0012 0001 0012 0001 0013 0001 0013 0001 0014 0001 0014 0001";
 
         private static string SAMSUNG_PRONTO_PWR = "0000 006C 0000 0022 00AD 00AD 0016 0041 0016 0041 " +
                                               "0016 0041 0016 0016 0016 0016 0016 0016 0016 0016 0016 " +
@@ -40,11 +45,18 @@ namespace InfrareddyExample
                     Console.WriteLine("Count: {0}", count);
 
                     var startTime = DateTime.Now;
-                    // Encode
-                    // Console.WriteLine("About to encode {0}", SAMSUNG_PRONTO_PWR);
-                    // var encodeResult = instance.EncodePronto(SAMSUNG_PRONTO_PWR, Infrareddy.NoRepeat);
+                    // Encode ONLY
+                    // Console.WriteLine("About to encode {0}", SAMSUNG_PRONTO_PWR2);
+                    var encodeResult = instance.EncodePronto(SERRO_6, Infrareddy.NoRepeat);
+                    Console.WriteLine("EncodeResult: {0}", encodeResult);
+                    // encodeResult = instance.EncodePronto(SERRO_6, Infrareddy.NoRepeat);
+                    // Console.WriteLine("EncodeResult: {0}", encodeResult);
+                    // encodeResult = instance.EncodePronto(SERRO_5, Infrareddy.NoRepeat);
+                    // Console.WriteLine("EncodeResult: {0}", encodeResult);
+                    // encodeResult = instance.EncodePronto(SERRO_6, Infrareddy.NoRepeat);
                     // Console.WriteLine("EncodeResult: {0}", encodeResult);
 
+                    /*
                     // Decode
                     var result = instance.DecodePronto();
                     Console.WriteLine("DecodeResult.status: {0}", result.status);
@@ -65,8 +77,9 @@ namespace InfrareddyExample
                     {
                         Console.WriteLine("DECODE FAILED: {0}", result.status);
                     }
+                    */
 
-                    // Thread.Sleep(100);
+                    Thread.Sleep(500);
                 }
                 catch (Exception err)
                 {
