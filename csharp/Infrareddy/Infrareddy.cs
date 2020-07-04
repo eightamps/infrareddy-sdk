@@ -49,7 +49,7 @@ namespace EightAmps
             public byte id;
             public UInt16 tag;
             public UInt16 timeoutMs;
-            public ProtocolType type;
+            public Int32 type;
         }
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
@@ -58,7 +58,7 @@ namespace EightAmps
             public byte id;
             public UInt16 tag;
             public Int32 status;
-            public ProtocolType type;
+            public Int32 type;
             public UInt16 len;
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = IR_DECODE_DATA_SIZE)]
             public byte[] data;
@@ -67,10 +67,13 @@ namespace EightAmps
         public enum RequestStatus
         {
             IR_SUCCESS = 0,
+            // Response codes from 1-49 are Retryable responses.
             IR_IS_BUSY,
+            // Response codes > 50 should not be retried automatically.
             IR_INVALID_NOT_HEX = 50,
             IR_INVALID_MALFORMED,
             IR_UNSUPPORTED_FORMAT,
+            IR_UNSUPPORTED_PROTOCOL,
             IR_UNSUPPORTED_FREQUENCY,
             IR_TIMEOUT_EXCEEDED,
             IR_INVALID_SIZE,
@@ -80,15 +83,15 @@ namespace EightAmps
 
         public enum ProtocolType : Int32
         {
-            REDDY_PROT_PRONTO = 0,
-            REDDY_PROT_SIRC,
-            REDDY_PROT_NEC,
-            REDDY_PROT_RAW,
-            REDDY_PROT_RC5,
-            REDDY_PROT_LAST = REDDY_PROT_PRONTO,  // We only support PRONTO for now.
+            IR_PROTOCOL_PRONTO = 0,
+            IR_PROTOCOL_SIRC,
+            IR_PROTOCOL_NEC,
+            IR_PROTOCOL_RC5,
+            IR_PROTOCOL_RAW,
+            REDDY_PROT_LAST = IR_PROTOCOL_RAW,
         }
 
-        public struct DecodeProntoResponse
+        public struct DecodeResponse
         {
             public RequestStatus status;
             public string payload;
@@ -160,7 +163,9 @@ namespace EightAmps
             try
             {
                 stream.Close();
-            } catch (Exception err) { };
+            } catch (Exception err) {
+                Console.WriteLine(err);
+            };
         }
 
         byte[] StructureToByteArray(object obj)
@@ -176,7 +181,6 @@ namespace EightAmps
 
         void ByteArrayToStructure(byte[] bytearray, ref object obj)
         {
-
             var len = Marshal.SizeOf(obj);
             var copy = Marshal.AllocHGlobal(len);
             Marshal.Copy(bytearray, 0, copy, len);
@@ -202,13 +206,12 @@ namespace EightAmps
             return RequestTag++;
         }
 
-        private byte[] ProntoStringToBytes(string command)
+        private byte[] AsciiToBytes(string command)
         {
             return Encoding.ASCII.GetBytes(command);
         }
 
-        // Convert the C# string command to Byte array.
-        public byte[] ProntoBytesToWireBytes(byte[] prontoBytes)
+        public byte[] ExpandArrayToWireSize(byte[] prontoBytes)
         {
             var bytes = new byte[IR_ENCODE_DATA_SIZE];
             // Copy the values into a longer array so that we can marshal 
@@ -230,39 +233,34 @@ namespace EightAmps
             return Encoding.ASCII.GetString(report.data);
         }
 
-        public EncodeCmdReportType ProntoToReport(string pronto, UInt16 requestTag)
+        public EncodeCmdReportType CreateEncodeReport(string data, UInt16 requestTag, ProtocolType type)
         {
             // TODO(lbayes): DONOTSUBMIT - truncate data to fit in testing values
-            pronto = pronto.Substring(0, Math.Min(pronto.Length, IR_ENCODE_DATA_SIZE));
-            var prontoBytes = ProntoStringToBytes(pronto);
-            var wireBytes = ProntoBytesToWireBytes(prontoBytes);
+            data = data.Substring(0, Math.Min(data.Length, IR_ENCODE_DATA_SIZE));
+            var prontoBytes = AsciiToBytes(data);
+            // NOTE(lbayes): Is this still necessary?
+            var wireBytes = ExpandArrayToWireSize(prontoBytes);
 
             return new EncodeCmdReportType
             {
                 id = OUT_ID_ENCODE_CMD,
                 tag = requestTag,
                 len = (UInt16)prontoBytes.Length,
-                type = (Int32)0,
+                type = (Int32)type,
                 data = wireBytes,
             };
         }
-        /**
-         * Tell the hardware to emit the provided Pronto command using either
-         * the "once" block if isRepeat is false, or the "repeat" block if
-         * isRepeat is true.
-         *
-         * Call the provided handler with status updates when emit is complete.
-         */
-        public RequestStatus EncodePronto(string prontoStr, byte isRepeat)
+
+        public RequestStatus Encode(string data, byte isRepeat, Infrareddy.ProtocolType type)
         {
-            if (prontoStr.Length > IR_ENCODE_DATA_SIZE)
+            if (data.Length > IR_ENCODE_DATA_SIZE)
             {
                 throw new InvalidOperationException("EmitPronto called with IR code that is too long.");
             }
 
             var requestTag = Infrareddy.NextRequestTag();
             // Send the report over the wire.
-            var report = ProntoToReport(prontoStr, requestTag);
+            var report = CreateEncodeReport(data, requestTag, type);
             var writeBytes = StructureToByteArray(report);
             stream.Write(writeBytes);
 
@@ -275,13 +273,21 @@ namespace EightAmps
         }
 
         /**
-         * Tell the hardware to begin listening for IR signals and to return
-         * them in Pronto format.
+         * Tell the hardware to emit the provided Pronto command using either
+         * the "once" block if isRepeat is false, or the "repeat" block if
+         * isRepeat is true.
          *
-         * Call the provided handler when listening has either received a
-         * signal, failed or timed out.
+         * Call the provided handler with status updates when emit is complete.
          */
-        public DecodeProntoResponse DecodePronto()
+        public RequestStatus EncodePronto(string prontoStr, byte isRepeat)
+        {
+            return Encode(prontoStr, isRepeat, ProtocolType.IR_PROTOCOL_PRONTO);
+        }
+
+        /**
+         * Begin listening for IR signals and return the requested encoding.
+         */
+        public DecodeResponse Decode(Infrareddy.ProtocolType type)
         {
             Infrareddy.NextRequestTag();
             var requestTag = Infrareddy.NextRequestTag();
@@ -289,8 +295,9 @@ namespace EightAmps
             {
                 id = OUT_ID_DECODE_CMD,
                 tag = requestTag,
+                type = (Int32)type,
             };
-            Console.WriteLine("Requesting Decode from device");
+            Console.WriteLine("Requesting Decode from device with: {0}", type);
             stream.Write(StructureToByteArray(command));
 
             Console.WriteLine("Attempt to read Decoded data from device");
@@ -303,11 +310,29 @@ namespace EightAmps
             var status = (RequestStatus)responseStruct.status;
             var payload = BytesToString(responseStruct.data);
 
-            return new DecodeProntoResponse
+            return new DecodeResponse
             {
                 status = status,
                 payload = payload,
             };
+        }
+
+        /**
+         * Tell the hardware to begin listening for IR signals and to return
+         * them in Pronto format.
+         */
+        public DecodeResponse DecodePronto()
+        {
+            return Decode(ProtocolType.IR_PROTOCOL_PRONTO);
+        }
+
+        /**
+         * Tell the hardware to begin listening for IR signals and to return
+         * them in RAW (8A format).
+         */
+        public DecodeResponse DecodeRaw()
+        {
+            return Decode(ProtocolType.IR_PROTOCOL_RAW);
         }
 
         private string BytesToString(byte[] bytes)
