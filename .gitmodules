@@ -1,3 +1,3 @@
-[submodule "./csharp/Vendor/HIDSharp"]
-	path = ./csharp/Vendor/HIDSharp
-	url = git@github.com:eightamps/hidsharp.git
+[submodule "csharp/Vendor/HIDSharp"]
+	path = csharp/Vendor/HIDSharp
+	url = https://github.com/eightamps/hidsharp.git
