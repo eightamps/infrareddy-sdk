@@ -103,14 +103,37 @@ namespace InfrareddyExample
             {
                 try
                 {
+                    Console.WriteLine("Select which test to perform:");
+                    Console.WriteLine("1) Command Center Button 1");
+                    Console.WriteLine("2) Sero Phone Buttons 5 & 6");
+                    Console.WriteLine("3) Decode an IR input, and then Encode the same output");
+                    Console.WriteLine("q) Quit the application");
+
+                    var selection = Console.ReadLine();
+                    switch(selection)
+                    {
+                        case "1":
+                            TestCommandCenterButtons(instance);
+                            break;
+                        case "2":
+                            TestSerroButtons(instance);
+                            break;
+                        case "3":
+                            TestDecodeAndEncodeRandom(instance);
+                            break;
+                        case "q":
+                            Console.WriteLine("Exiting now");
+                            Thread.Sleep(500);
+                            System.Environment.Exit(0);
+                            break;
+                        default:
+                            Console.WriteLine("Invalid selection, just press the number, followed by the 'Enter' key.");
+                            break;
+                    }
+
                     count++;
-                    Console.WriteLine("Count: {0}", count);
-
-                    // TestCommandCenterButtons(instance);
-                    // TestSerroButtons(instance);
-                    TestDecodeAndEncodeRandom(instance);
-
-                    Thread.Sleep(100);
+                    Console.WriteLine("Loop Count: {0}", count);
+                    Thread.Sleep(200);
                 }
                 catch (Exception err)
                 {
