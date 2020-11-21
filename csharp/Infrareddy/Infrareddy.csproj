@@ -7,7 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\Maple3\csharp\sdk\HidSharp\HidSharp\HidSharp.NETStandard.csproj" />
+    <Reference Include="HidSharp">
+      <HintPath>..\..\..\..\Vendor DLLs\HidSharp.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
 </Project>
