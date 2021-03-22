@@ -264,12 +264,21 @@ namespace EightAmps
             var writeBytes = StructureToByteArray(report);
             stream.Write(writeBytes);
 
+            // Don't let result failure block the IR Worker thread
+            stream.ReadTimeout = 500;
             // Get the response report from the wire.
-            var readResponse = stream.Read();
-            object responseObj = new StatusRspReportType { };
-            ByteArrayToStructure(readResponse, ref responseObj);
-            StatusRspReportType response = (StatusRspReportType)responseObj;
-            return (RequestStatus)response.status;
+            try
+            {
+                var readResponse = stream.Read();
+                object responseObj = new StatusRspReportType { };
+                ByteArrayToStructure(readResponse, ref responseObj);
+                StatusRspReportType response = (StatusRspReportType)responseObj;
+                return (RequestStatus)response.status;
+            }
+            catch (TimeoutException)
+            {
+                return RequestStatus.IR_TIMEOUT_EXCEEDED;
+            }
         }
 
         /**
@@ -298,23 +307,42 @@ namespace EightAmps
                 type = (Int32)type,
             };
             Console.WriteLine("Requesting Decode from device with: {0}", type);
-            stream.Write(StructureToByteArray(command));
+            try
+            {
+                stream.Write(StructureToByteArray(command));
+            }
+            catch (System.IO.IOException)
+            {
+                Console.WriteLine("ERROR: FAILED TO DECODE");
+            }
 
             Console.WriteLine("Attempt to read Decoded data from device");
-            var readResponse = stream.Read();
-            Console.WriteLine("Read complete!");
 
-            object responseObj = new DecodeCmdResponseType { };
-            ByteArrayToStructure(readResponse, ref responseObj);
-            var responseStruct = (DecodeCmdResponseType)responseObj;
-            var status = (RequestStatus)responseStruct.status;
-            var payload = BytesToString(responseStruct.data);
-
-            return new DecodeResponse
+            try
             {
-                status = status,
-                payload = payload,
-            };
+                // Set the read timeout to 3 seconds.
+                stream.ReadTimeout = 30000;
+                var readResponse = stream.Read();
+                Console.WriteLine("Read complete!");
+                object responseObj = new DecodeCmdResponseType { };
+                ByteArrayToStructure(readResponse, ref responseObj);
+                var responseStruct = (DecodeCmdResponseType)responseObj;
+                var status = (RequestStatus)responseStruct.status;
+                var payload = BytesToString(responseStruct.data);
+                return new DecodeResponse
+                {
+                    status = status,
+                    payload = payload,
+                };
+            }
+            catch (TimeoutException)
+            {
+                return new DecodeResponse
+                {
+                    status = RequestStatus.IR_TIMEOUT_EXCEEDED,
+                    payload = "Read Failure: Due to Timeout exceeded, try short presses",
+                };
+            }
         }
 
         /**
