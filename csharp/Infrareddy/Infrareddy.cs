@@ -9,6 +9,7 @@ namespace EightAmps
 {
     public class Infrareddy
     {
+        private const int IR_READ_TIMEOUT_MS = 30000;
         public const UInt16 ASPEN_VENDOR_ID = 0x0483;
         public const UInt16 ASPEN_PRODUCT_ID = 0xa367;
         public const uint ASPEN_APPLICATION_USAGE_ID = 0xff8a0002;
@@ -152,7 +153,7 @@ namespace EightAmps
             HidStream stream = null;
             if (device.TryOpen(out stream))
             {
-                stream.ReadTimeout = Timeout.Infinite;
+                stream.ReadTimeout = IR_READ_TIMEOUT_MS;
                 return stream;
             }
             return null;
@@ -262,13 +263,11 @@ namespace EightAmps
             // Send the report over the wire.
             var report = CreateEncodeReport(data, requestTag, type);
             var writeBytes = StructureToByteArray(report);
-            stream.Write(writeBytes);
-
-            // Don't let result failure block the IR Worker thread
-            stream.ReadTimeout = 500;
             // Get the response report from the wire.
             try
             {
+                stream.Write(writeBytes);
+                // Don't let result failure block the IR Worker thread
                 var readResponse = stream.Read();
                 object responseObj = new StatusRspReportType { };
                 ByteArrayToStructure(readResponse, ref responseObj);
@@ -310,29 +309,16 @@ namespace EightAmps
             try
             {
                 stream.Write(StructureToByteArray(command));
-            }
-            catch (System.IO.IOException)
-            {
-                Console.WriteLine("ERROR: FAILED TO DECODE");
-            }
-
-            Console.WriteLine("Attempt to read Decoded data from device");
-
-            try
-            {
-                // Set the read timeout to 3 seconds.
-                stream.ReadTimeout = 30000;
+                Console.WriteLine("Attempt to read Decoded data from device");
                 var readResponse = stream.Read();
                 Console.WriteLine("Read complete!");
                 object responseObj = new DecodeCmdResponseType { };
                 ByteArrayToStructure(readResponse, ref responseObj);
                 var responseStruct = (DecodeCmdResponseType)responseObj;
-                var status = (RequestStatus)responseStruct.status;
-                var payload = BytesToString(responseStruct.data);
                 return new DecodeResponse
                 {
-                    status = status,
-                    payload = payload,
+                    status = (RequestStatus)responseStruct.status,
+                    payload = BytesToString(responseStruct.data),
                 };
             }
             catch (TimeoutException)
@@ -340,7 +326,7 @@ namespace EightAmps
                 return new DecodeResponse
                 {
                     status = RequestStatus.IR_TIMEOUT_EXCEEDED,
-                    payload = "Read Failure: Due to Timeout exceeded, try short presses",
+                    payload = "Read Failure: Due to Timeout exceeded, try shorter presses",
                 };
             }
         }
