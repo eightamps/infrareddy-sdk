@@ -3,7 +3,6 @@ using System.Text;
 using System;
 using HidSharp;
 using System.Linq;
-using System.Threading;
 
 namespace EightAmps
 {
@@ -12,7 +11,9 @@ namespace EightAmps
         private const int IR_READ_TIMEOUT_MS = 30000;
         public const UInt16 ASPEN_VENDOR_ID = 0x0483;
         public const UInt16 ASPEN_PRODUCT_ID = 0xa367;
-        public const uint ASPEN_APPLICATION_USAGE_ID = 0xff8a0002;
+        public const UInt16 MAPLE_VENDOR_ID = 0x335e;
+        public const UInt16 MAPLE_PRODUCT_ID = 0x8a01;
+        public const uint INFRAREDDY_APPLICATION_USAGE_ID = 0xff8a0002;
 
         public const UInt16 IR_ENVELOPE_SIZE = (4096 - 1);
         public const UInt16 IR_ENCODE_DATA_SIZE = (IR_ENVELOPE_SIZE - (1 + 2 + 4 + 2));
@@ -21,6 +22,8 @@ namespace EightAmps
         // Report Identifiers
         public const byte OUT_ID_DECODE_CMD = 2;
         public const byte OUT_ID_ENCODE_CMD = 3;
+        public const byte OUT_ID_POWER_CMD = 4;
+
         public const byte IN_ID_STATUS_RSP = 1;
 
         private static UInt16 RequestTag = 223;
@@ -34,6 +37,13 @@ namespace EightAmps
             public UInt16 len;
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = IR_ENCODE_DATA_SIZE)]
             public byte[] data;
+        }
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct PowerCmdReportType
+        {
+            public byte id;
+            public UInt16 tag;
+            public byte isHighPower;
         }
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1, Size = 7)]
@@ -102,6 +112,17 @@ namespace EightAmps
         public static byte NoRepeat = 0x00;
         public Version SoftwareVersion { get; private set; }
         public Version HardwareVersion { get { return null; } } // return hiddev.ReleaseNumber; } }
+
+        public bool IsHighPower {
+          get { return this.isHighPower; }
+          set { 
+            if (value != this.isHighPower) {
+              this.isHighPower = value;
+              this.isHighPowerChanged = true;
+            }
+          }
+        }
+
         public delegate void CompleteHandler(RequestStatus status);
 
         public static Infrareddy First()
@@ -117,8 +138,9 @@ namespace EightAmps
          */
         private static bool IsInfrareddy(HidDevice hiddev)
         {
-            return Infrareddy.IsAspenDevice(hiddev) &&
-                Infrareddy.GetApplicationUsage(hiddev) == ASPEN_APPLICATION_USAGE_ID;
+            return (Infrareddy.IsAspenDevice(hiddev) ||
+                Infrareddy.IsMapleDevice(hiddev)) &&
+                Infrareddy.GetApplicationUsage(hiddev) == INFRAREDDY_APPLICATION_USAGE_ID;
         }
 
         public static uint GetApplicationUsage(HidDevice device)
@@ -135,13 +157,23 @@ namespace EightAmps
                 device.ProductID == ASPEN_PRODUCT_ID;
         }
 
-        private HidDevice device;
+        public static bool IsMapleDevice(HidDevice device)
+        {
+            return device != null && 
+                device.VendorID == MAPLE_VENDOR_ID &&
+                device.ProductID == MAPLE_PRODUCT_ID;
+        }
+
         private HidStream stream;
+        private bool isHighPower;
+        private bool isHighPowerChanged;
 
         public Infrareddy(HidDevice device)
         {
-            this.device = device;
             this.stream = OpenStream(device);
+            // TODO(lbayes): Get Value from Settings Service
+            this.IsHighPower = true;
+
             // TODO(lbayes): Deal with these events.
             // device.Inserted += DeviceAttachedHandler;
             // device.Removed += DeviceRemovedHandler;
@@ -150,7 +182,6 @@ namespace EightAmps
 
         private HidStream OpenStream(HidDevice device)
         {
-            HidStream stream = null;
             if (device.TryOpen(out stream))
             {
                 stream.ReadTimeout = IR_READ_TIMEOUT_MS;
@@ -226,20 +257,22 @@ namespace EightAmps
         }
 
         /**
-         * Get the bytes from the provided Report and return
-         * them as a string that is limited by chunkLen.
+         * Create a new Infrared Power Report
          */
-        private string ReportToString(EncodeCmdReportType report)
+        private PowerCmdReportType CreatePowerReport(bool isHigh)
         {
-            return Encoding.ASCII.GetString(report.data);
+          return new PowerCmdReportType
+          {
+              id = OUT_ID_POWER_CMD,
+              tag = Infrareddy.NextRequestTag(),
+              isHighPower = Convert.ToByte(isHigh ? 1 : 0),
+          };
         }
 
         public EncodeCmdReportType CreateEncodeReport(string data, UInt16 requestTag, ProtocolType type)
         {
-            // TODO(lbayes): DONOTSUBMIT - truncate data to fit in testing values
             data = data.Substring(0, Math.Min(data.Length, IR_ENCODE_DATA_SIZE));
             var prontoBytes = AsciiToBytes(data);
-            // NOTE(lbayes): Is this still necessary?
             var wireBytes = ExpandArrayToWireSize(prontoBytes);
 
             return new EncodeCmdReportType
@@ -254,6 +287,9 @@ namespace EightAmps
 
         public RequestStatus Encode(string data, byte isRepeat, Infrareddy.ProtocolType type)
         {
+            // Set the IR Power if it has been changed since last encode.
+            UpdateIrPowerIfNecessary();
+
             if (data.Length > IR_ENCODE_DATA_SIZE)
             {
                 throw new InvalidOperationException("EmitPronto called with IR code that is too long.");
@@ -264,6 +300,12 @@ namespace EightAmps
             var report = CreateEncodeReport(data, requestTag, type);
             var writeBytes = StructureToByteArray(report);
             // Get the response report from the wire.
+
+            if (Convert.ToBoolean(isRepeat))
+            {
+                Console.WriteLine("WARNING: isRepeat sent to Encode, but not forwarded to device");
+            }
+
             try
             {
                 stream.Write(writeBytes);
@@ -278,6 +320,44 @@ namespace EightAmps
             {
                 return RequestStatus.IR_TIMEOUT_EXCEEDED;
             }
+        }
+
+        /**
+         * Update the Infrared Power output if it has changed since the last time
+         * we successfully notified the connected client.
+         *
+         * NOTE(lbayes): This call will be ignored by legacy clients that do not
+         * declare support for this Report ID (e.g., Legacy AT-12's)
+         */
+        private RequestStatus UpdateIrPowerIfNecessary()
+        {
+            if (isHighPowerChanged)
+            {
+                try
+                {
+                    var report = CreatePowerReport(this.IsHighPower);
+                    var writeBytes = StructureToByteArray(report);
+                    stream.Write(writeBytes);
+                    this.isHighPowerChanged = false;
+
+                    var readResponse = stream.Read();
+                    object responseObj = new StatusRspReportType { };
+                    ByteArrayToStructure(readResponse, ref responseObj);
+                    StatusRspReportType response = (StatusRspReportType)responseObj;
+
+                    this.IsHighPower = !this.IsHighPower;
+                    return (RequestStatus)response.status;
+                }
+                catch (Exception)
+                {
+                    // Legacy Aspen systems do not accept this report, so will fail.
+                    // Legacy Maple systems do not accept his report, so will fail.
+                    // The default value on systems that support this report is LOW POWER, so failure to change is safe.
+                    return RequestStatus.IR_FAILURE;
+                }
+            }
+
+            return RequestStatus.IR_SUCCESS;
         }
 
         /**
