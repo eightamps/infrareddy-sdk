@@ -174,9 +174,6 @@ namespace EightAmps
         public Infrareddy(HidDevice device)
         {
             this.stream = OpenStream(device);
-            // TODO(lbayes): Get Value from Settings Service
-            this.IsHighPower = true;
-
             // TODO(lbayes): Deal with these events.
             // device.Inserted += DeviceAttachedHandler;
             // device.Removed += DeviceRemovedHandler;
@@ -350,7 +347,6 @@ namespace EightAmps
                     ByteArrayToStructure(readResponse, ref responseObj);
                     StatusRspReportType response = (StatusRspReportType)responseObj;
 
-                    this.IsHighPower = !this.IsHighPower;
                     return (RequestStatus)response.status;
                 }
                 catch (Exception)
