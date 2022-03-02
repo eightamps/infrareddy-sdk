@@ -113,14 +113,17 @@ namespace EightAmps
         public Version SoftwareVersion { get; private set; }
         public Version HardwareVersion { get { return null; } } // return hiddev.ReleaseNumber; } }
 
-        public bool IsHighPower {
-          get { return this.isHighPower; }
-          set { 
-            if (value != this.isHighPower) {
-              this.isHighPower = value;
-              this.isHighPowerChanged = true;
+        public bool IsHighPower
+        {
+            get { return this.isHighPower; }
+            set
+            {
+                if (value != this.isHighPower)
+                {
+                    this.isHighPower = value;
+                    this.isHighPowerChanged = true;
+                }
             }
-          }
         }
 
         public delegate void CompleteHandler(RequestStatus status);
@@ -152,14 +155,14 @@ namespace EightAmps
 
         public static bool IsAspenDevice(HidDevice device)
         {
-            return device != null && 
+            return device != null &&
                 device.VendorID == ASPEN_VENDOR_ID &&
                 device.ProductID == ASPEN_PRODUCT_ID;
         }
 
         public static bool IsMapleDevice(HidDevice device)
         {
-            return device != null && 
+            return device != null &&
                 device.VendorID == MAPLE_VENDOR_ID &&
                 device.ProductID == MAPLE_PRODUCT_ID;
         }
@@ -195,7 +198,9 @@ namespace EightAmps
             try
             {
                 stream.Close();
-            } catch (Exception err) {
+            }
+            catch (Exception err)
+            {
                 Console.WriteLine(err);
             };
         }
@@ -248,7 +253,7 @@ namespace EightAmps
             var bytes = new byte[IR_ENCODE_DATA_SIZE];
             // Copy the values into a longer array so that we can marshal 
             // the Byte array of fixed length into the firmware.
-            for (var i = 0;  i < prontoBytes.Length; i++)
+            for (var i = 0; i < prontoBytes.Length; i++)
             {
                 bytes[i] = prontoBytes[i];
             }
@@ -261,12 +266,12 @@ namespace EightAmps
          */
         private PowerCmdReportType CreatePowerReport(bool isHigh)
         {
-          return new PowerCmdReportType
-          {
-              id = OUT_ID_POWER_CMD,
-              tag = Infrareddy.NextRequestTag(),
-              isHighPower = Convert.ToByte(isHigh ? 1 : 0),
-          };
+            return new PowerCmdReportType
+            {
+                id = OUT_ID_POWER_CMD,
+                tag = Infrareddy.NextRequestTag(),
+                isHighPower = Convert.ToByte(isHigh ? 1 : 0),
+            };
         }
 
         public EncodeCmdReportType CreateEncodeReport(string data, UInt16 requestTag, ProtocolType type)
