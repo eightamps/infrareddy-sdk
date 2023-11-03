@@ -9,6 +9,8 @@ namespace EightAmps
     public class Infrareddy
     {
         private const int IR_READ_TIMEOUT_MS = 30000;
+        public const UInt16 ASPEN_V2_VENDOR_ID = 0x335e;
+        public const UInt16 ASPEN_V2_PRODUCT_ID = 0x8a12;
         public const UInt16 ASPEN_VENDOR_ID = 0x0483;
         public const UInt16 ASPEN_PRODUCT_ID = 0xa367;
         public const UInt16 MAPLE_VENDOR_ID = 0x335e;
@@ -156,8 +158,10 @@ namespace EightAmps
         public static bool IsAspenDevice(HidDevice device)
         {
             return device != null &&
-                device.VendorID == ASPEN_VENDOR_ID &&
-                device.ProductID == ASPEN_PRODUCT_ID;
+                (device.VendorID == ASPEN_VENDOR_ID &&
+                device.ProductID == ASPEN_PRODUCT_ID) ||
+                (device.VendorID == ASPEN_V2_VENDOR_ID &&
+                device.ProductID == ASPEN_V2_PRODUCT_ID);
         }
 
         public static bool IsMapleDevice(HidDevice device)
